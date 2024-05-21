@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width">
+    <title>Embeded Project</title>
+    <link href="style.css" rel="stylesheet" type="text/css" />
+</head>
+
+<body>
+    <div class="curstate">
+        <div id="status">ไม่มีรถจอด</div>
+        <div id="container">
+            <div id="redgreen"></div>
+            <img src="ok.jpg" height="296" alt="" id="meme">
+        </div>
+
+        <div>Detected History</div>
+        <table id="table">
+            <tr>
+                <td>date</td>
+                <td>time</td>
+                <td>status</td>
+            </tr>
+        </table>
+    </div>
+    <button onclick="toggle()">toggle</button>
+    <button onclick="updateTable()">update</button>
+
+
+
+    <script src="script.js"></script>
+</body>
+
+</html>
