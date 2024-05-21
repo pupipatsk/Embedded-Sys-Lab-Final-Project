@@ -75,8 +75,8 @@ uint8_t pair2State = 0;
 uint8_t pair3State = 0;
 
 uint8_t presentState = 0;
-int state1CycleCount = 0;
 uint8_t RxState = 0;
+int state1CycleCount = 0;
 int sentCount = 0;
 
 /* USER CODE END PV */
@@ -187,6 +187,7 @@ int main(void)
   HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, GPIO_PIN_RESET);
   HAL_GPIO_WritePin(GPIOB, GPIO_PIN_4, GPIO_PIN_RESET);
 
+  HAL_UART_Transmit_IT(&huart1, &presentState, sizeof(presentState)); // initial state
   /* USER CODE END 2 */
 
   /* Infinite loop */
