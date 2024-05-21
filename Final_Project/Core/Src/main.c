@@ -75,7 +75,9 @@ uint8_t pair2State = 0;
 uint8_t pair3State = 0;
 
 uint8_t presentState = 0;
-uint8_t data[2000];
+int state1CycleCount = 0;
+uint8_t RxState = 0;
+int sentCount = 0;
 
 /* USER CODE END PV */
 
@@ -141,7 +143,7 @@ void printUART2(const char* prefix, uint32_t value) {
 
 void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
 {
-   HAL_UART_Transmit_IT(&huart1, data, sizeof (data));
+	sentCount++;
 }
 
 /* USER CODE END 0 */
@@ -228,8 +230,28 @@ int main(void)
 	  else pair3State = 0;
 
 	  uint8_t sumPairState = pair1State + pair2State + pair3State;
-	  if (sumPairState >= 2) presentState = 1;
-	  else presentState = 0;
+	  uint8_t oldState = presentState;
+	  if (sumPairState >= 2) {
+		  presentState = 1;
+		  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_SET);
+		  state1CycleCount++;
+		  if (state1CycleCount == 5) {
+			  HAL_UART_Transmit_IT(&huart1, &presentState, sizeof(presentState));
+			  RxState = presentState;
+		  }
+	  }
+	  else {
+		  presentState = 0;
+		  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_RESET);
+		  state1CycleCount = 0;
+		  // falling edge
+		  if (oldState == 1 && presentState == 0) {
+			  if (presentState != RxState) {
+				  HAL_UART_Transmit_IT(&huart1, &presentState, sizeof(presentState));
+				  RxState = presentState;
+			  }
+		  }
+	  }
 
 	  // print via UART2
 	  printUART2("lux1", lux1);
@@ -238,8 +260,12 @@ int main(void)
 	  printUART2("distance1", distance1);
 	  printUART2("distance2", distance2);
 	  printUART2("distance3", distance3);
-	  printUART2("presentState", presentState);
 
+	  printUART2("oldState", oldState);
+	  printUART2("presentState", presentState);
+	  printUART2("state1CycleCount", state1CycleCount);
+	  printUART2("RxState", RxState);
+	  printUART2("sentCount", sentCount);
 
 	  HAL_Delay(1000);
 
