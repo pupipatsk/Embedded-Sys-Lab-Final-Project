@@ -18,12 +18,11 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
-#include "stdio.h"
-#include "string.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "stdio.h"
+#include "string.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -45,18 +44,22 @@
 ADC_HandleTypeDef hadc1;
 
 TIM_HandleTypeDef htim1;
-#define TRIG_PIN GPIO_PIN_7 // GPIO_Output // to Trig
-#define TRIG_PORT GPIOA
-#define ECHO_PIN GPIO_PIN_6 // GPIO_Input // from Echo
-#define ECHO_PORT GPIOA
-uint32_t pMillis;
-uint32_t val1 = 0;
-uint32_t val2 = 0;
-uint16_t distance  = 0;
 
 UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
+char msg[256];
+
+int lux1 = 0;
+int lux2 = 0;
+int lux3 = 0;
+
+uint32_t pMillis;
+uint32_t val1 = 0;
+uint32_t val2 = 0;
+uint16_t distance1  = 0;
+uint16_t distance2  = 0;
+uint16_t distance3  = 0;
 
 /* USER CODE END PV */
 
@@ -72,6 +75,47 @@ static void MX_TIM1_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+void ADC_Select_CH0 (void)
+{
+	ADC_ChannelConfTypeDef sConfig = {0};
+	  /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
+	  */
+	  sConfig.Channel = ADC_CHANNEL_0;
+	  sConfig.Rank = 1;
+	  sConfig.SamplingTime = ADC_SAMPLETIME_28CYCLES;
+	  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+	  {
+	    Error_Handler();
+	  }
+}
+
+void ADC_Select_CH1 (void)
+{
+	ADC_ChannelConfTypeDef sConfig = {0};
+	  /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
+	  */
+	  sConfig.Channel = ADC_CHANNEL_1;
+	  sConfig.Rank = 1;
+	  sConfig.SamplingTime = ADC_SAMPLETIME_28CYCLES;
+	  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+	  {
+	    Error_Handler();
+	  }
+}
+
+void ADC_Select_CH4 (void)
+{
+	ADC_ChannelConfTypeDef sConfig = {0};
+	  /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
+	  */
+	  sConfig.Channel = ADC_CHANNEL_4;
+	  sConfig.Rank = 1;
+	  sConfig.SamplingTime = ADC_SAMPLETIME_28CYCLES;
+	  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+	  {
+	    Error_Handler();
+	  }
+}
 
 /* USER CODE END 0 */
 
@@ -105,56 +149,166 @@ int main(void)
   MX_GPIO_Init();
   MX_USART2_UART_Init();
   MX_ADC1_Init();
-
   MX_TIM1_Init();
-  HAL_TIM_Base_Start(&htim1);
-  HAL_GPIO_WritePin(TRIG_PORT, TRIG_PIN, GPIO_PIN_RESET);
   /* USER CODE BEGIN 2 */
-  int lux1 = 0;
-  char msg[256];
+  HAL_TIM_Base_Start(&htim1);
+
+  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_8, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_4, GPIO_PIN_RESET);
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	  // LDR
+	  // LDR new
+	  ADC_Select_CH0();
 	  HAL_ADC_Start(&hadc1);
-	  // Wait for 1000ms or when the conversion is finished.
-	  if (HAL_ADC_PollForConversion(&hadc1, 1000) == HAL_OK) {
-		  // Read the ADC value
-		  lux1 = HAL_ADC_GetValue(&hadc1);
-		  // Write integer to buffer
-		  sprintf (msg, "lux1: %d\r\n" , lux1);
-		  // Transmitted with UART
-		  HAL_UART_Transmit(&huart2, msg, strlen(msg), 1000);
+	  HAL_ADC_PollForConversion(&hadc1, 1000);
+	  lux1 = HAL_ADC_GetValue(&hadc1);
+	  HAL_ADC_Stop(&hadc1);
 
-		  if (lux1 < 2300) {
-			  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_SET);
-		  }
-		  else {
-			  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_RESET);
-		  }
-	  }
+	  ADC_Select_CH1();
+	  HAL_ADC_Start(&hadc1);
+	  HAL_ADC_PollForConversion(&hadc1, 1000);
+	  lux2 = HAL_ADC_GetValue(&hadc1);
+	  HAL_ADC_Stop(&hadc1);
+
+	  ADC_Select_CH4();
+	  HAL_ADC_Start(&hadc1);
+	  HAL_ADC_PollForConversion(&hadc1, 1000);
+	  lux3 = HAL_ADC_GetValue(&hadc1);
+	  HAL_ADC_Stop(&hadc1);
+
+	  // Transmit lux1 value
+	  sprintf(msg, "lux1: %d\r\n", lux1);
+	  HAL_UART_Transmit(&huart2, (uint8_t*)msg, strlen(msg), 1000);
+
+	  // Transmit lux2 value
+	  sprintf(msg, "lux2: %d\r\n", lux2);
+	  HAL_UART_Transmit(&huart2, (uint8_t*)msg, strlen(msg), 1000);
+
+	  // Transmit lux3 value
+	  sprintf(msg, "lux3: %d\r\n", lux3);
+	  HAL_UART_Transmit(&huart2, (uint8_t*)msg, strlen(msg), 1000);
+
+	  // LDR 1
+//	  HAL_ADC_Start(&hadc1);
+//	  	  if (HAL_ADC_PollForConversion(&hadc1, 1000) == HAL_OK) {
+//	  		  lux2 = HAL_ADC_GetValue(&hadc1);
+//	  		  sprintf(msg, "lux2: %d\r\n", lux2);
+//	  		  HAL_UART_Transmit(&huart2, (uint8_t*)msg, strlen(msg), 1000);
+//
+//	  		  if (lux2 < 2300) {
+//	  			  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_SET);
+//	  		  } else {
+//	  			  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_RESET);
+//	  		  }
+//	  	  }
+
+//	  // LDR 2
+//	  ADC_Select_CH1();
+//	  HAL_ADC_Start(&hadc1);
+//	  if (HAL_ADC_PollForConversion(&hadc1, 1000) == HAL_OK) {
+//		  lux2 = HAL_ADC_GetValue(&hadc1);
+//		  sprintf(msg, "lux2: %d\r\n", lux2);
+//		  HAL_UART_Transmit(&huart2, (uint8_t*)msg, strlen(msg), 1000);
+//
+//		  if (lux2 < 2300) {
+//			  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_SET);
+//		  } else {
+//			  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_RESET);
+//		  }
+//	  }
+//	  HAL_ADC_Stop(&hadc1);
+//
+//	  // LDR 3
+//	  ADC_Select_CH4();
+//	  HAL_ADC_Start(&hadc1);
+//	  if (HAL_ADC_PollForConversion(&hadc1, 1000) == HAL_OK) {
+//		  lux3 = HAL_ADC_GetValue(&hadc1);
+//		  sprintf(msg, "lux3: %d\r\n", lux3);
+//		  HAL_UART_Transmit(&huart2, (uint8_t*)msg, strlen(msg), 1000);
+//
+//		  if (lux3 < 2300) {
+//			  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_SET);
+//		  } else {
+//			  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_RESET);
+//		  }
+//	  }
+//	  HAL_ADC_Stop(&hadc1);
 
 	  // Ultrasonic
-	  HAL_GPIO_WritePin(TRIG_PORT, TRIG_PIN, GPIO_PIN_SET);
+	  // ----- 1 ----- //
+	  // trig
+	  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_8, GPIO_PIN_SET);
 	  __HAL_TIM_SET_COUNTER(&htim1, 0);
 	  while (__HAL_TIM_GET_COUNTER (&htim1) < 10);
-	  HAL_GPIO_WritePin(TRIG_PORT, TRIG_PIN, GPIO_PIN_RESET);
-
+	  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_8, GPIO_PIN_RESET);
+	  // echo
+	  // rising edge // to HIGH state
 	  pMillis = HAL_GetTick();
-	  while (!(HAL_GPIO_ReadPin (ECHO_PORT, ECHO_PIN)) && pMillis + 10 >  HAL_GetTick());
+	  while (!(HAL_GPIO_ReadPin (GPIOA, GPIO_PIN_7)) && pMillis + 10 >  HAL_GetTick());
 	  val1 = __HAL_TIM_GET_COUNTER (&htim1);
-
+	  // falling edge // to LOW state
 	  pMillis = HAL_GetTick();
-	  while ((HAL_GPIO_ReadPin (ECHO_PORT, ECHO_PIN)) && pMillis + 50 > HAL_GetTick());
+	  while ((HAL_GPIO_ReadPin (GPIOA, GPIO_PIN_7)) && pMillis + 50 > HAL_GetTick());
 	  val2 = __HAL_TIM_GET_COUNTER (&htim1);
 
-	  distance = (val2-val1) * 0.034/2; // centimeter
 
-	  sprintf (msg, "distance1: %d\r\n" , distance);
+	  distance1 = (val2-val1) * 0.034/2; // centimeter
+
+	  sprintf (msg, "distance1: %d\r\n" , distance1);
 	  HAL_UART_Transmit(&huart2, msg, strlen(msg), 1000);
+
+	  HAL_Delay(60);
+
+	  // ----- 2 ----- //
+	  // trig
+	  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, GPIO_PIN_SET);
+	  __HAL_TIM_SET_COUNTER(&htim1, 0);
+	  while (__HAL_TIM_GET_COUNTER (&htim1) < 10);
+	  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, GPIO_PIN_RESET);
+	  // echo
+	  // rising edge // to HIGH state
+	  pMillis = HAL_GetTick();
+	  while (!(HAL_GPIO_ReadPin (GPIOB, GPIO_PIN_6)) && pMillis + 10 >  HAL_GetTick());
+	  val1 = __HAL_TIM_GET_COUNTER (&htim1);
+	  // falling edge // to LOW state
+	  pMillis = HAL_GetTick();
+	  while ((HAL_GPIO_ReadPin (GPIOB, GPIO_PIN_6)) && pMillis + 50 > HAL_GetTick());
+	  val2 = __HAL_TIM_GET_COUNTER (&htim1);
+
+	  distance2 = (val2-val1) * 0.034/2; // centimeter
+
+	  sprintf (msg, "distance2: %d\r\n" , distance2);
+	  HAL_UART_Transmit(&huart2, msg, strlen(msg), 1000);
+
+	  HAL_Delay(60);
+
+	  // ----- 3 ----- //
+	  // trig
+	  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_4, GPIO_PIN_SET);
+	  __HAL_TIM_SET_COUNTER(&htim1, 0);
+	  while (__HAL_TIM_GET_COUNTER (&htim1) < 10);
+	  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_4, GPIO_PIN_RESET);
+	  // echo
+	  // rising edge // to HIGH state
+	  pMillis = HAL_GetTick();
+	  while (!(HAL_GPIO_ReadPin (GPIOC, GPIO_PIN_7)) && pMillis + 10 >  HAL_GetTick());
+	  val1 = __HAL_TIM_GET_COUNTER (&htim1);
+	  // falling edge // to LOW state
+	  pMillis = HAL_GetTick();
+	  while ((HAL_GPIO_ReadPin (GPIOC, GPIO_PIN_7)) && pMillis + 50 > HAL_GetTick());
+	  val2 = __HAL_TIM_GET_COUNTER (&htim1);
+
+	  distance3 = (val2-val1) * 0.034/2; // centimeter
+
+	  sprintf (msg, "distance3: %d\r\n" , distance3);
+	  HAL_UART_Transmit(&huart2, msg, strlen(msg), 1000);
+
 
 	  HAL_Delay(1000);
     /* USER CODE END WHILE */
@@ -232,29 +386,47 @@ static void MX_ADC1_Init(void)
   hadc1.Instance = ADC1;
   hadc1.Init.ClockPrescaler = ADC_CLOCK_SYNC_PCLK_DIV4;
   hadc1.Init.Resolution = ADC_RESOLUTION_12B;
-  hadc1.Init.ScanConvMode = DISABLE;
+  hadc1.Init.ScanConvMode = ENABLE;
   hadc1.Init.ContinuousConvMode = DISABLE;
   hadc1.Init.DiscontinuousConvMode = DISABLE;
   hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
   hadc1.Init.ExternalTrigConv = ADC_SOFTWARE_START;
   hadc1.Init.DataAlign = ADC_DATAALIGN_RIGHT;
-  hadc1.Init.NbrOfConversion = 1;
+  hadc1.Init.NbrOfConversion = 3;
   hadc1.Init.DMAContinuousRequests = DISABLE;
   hadc1.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
   if (HAL_ADC_Init(&hadc1) != HAL_OK)
   {
     Error_Handler();
   }
-
-  /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
-  */
-  sConfig.Channel = ADC_CHANNEL_0;
-  sConfig.Rank = 1;
-  sConfig.SamplingTime = ADC_SAMPLETIME_3CYCLES;
-  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
+//
+//  /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
+//  */
+//  sConfig.Channel = ADC_CHANNEL_0;
+//  sConfig.Rank = 1;
+//  sConfig.SamplingTime = ADC_SAMPLETIME_3CYCLES;
+//  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+//  {
+//    Error_Handler();
+//  }
+//
+//  /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
+//  */
+//  sConfig.Channel = ADC_CHANNEL_1;
+//  sConfig.Rank = 2;
+//  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+//  {
+//    Error_Handler();
+//  }
+//
+//  /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
+//  */
+//  sConfig.Channel = ADC_CHANNEL_4;
+//  sConfig.Rank = 3;
+//  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+//  {
+//    Error_Handler();
+//  }
   /* USER CODE BEGIN ADC1_Init 2 */
 
   /* USER CODE END ADC1_Init 2 */
@@ -358,7 +530,10 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOB_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOA, LD2_Pin|GPIO_PIN_7, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOA, LD2_Pin|GPIO_PIN_8, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10|GPIO_PIN_4, GPIO_PIN_RESET);
 
   /*Configure GPIO pin : B1_Pin */
   GPIO_InitStruct.Pin = B1_Pin;
@@ -366,18 +541,37 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(B1_GPIO_Port, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : LD2_Pin PA7 */
-  GPIO_InitStruct.Pin = LD2_Pin|GPIO_PIN_7;
+  /*Configure GPIO pins : LD2_Pin PA8 */
+  GPIO_InitStruct.Pin = LD2_Pin|GPIO_PIN_8;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
-  /*Configure GPIO pin : PA6 */
-  GPIO_InitStruct.Pin = GPIO_PIN_6;
+  /*Configure GPIO pin : PA7 */
+  GPIO_InitStruct.Pin = GPIO_PIN_7;
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
+  /*Configure GPIO pins : PB10 PB4 */
+  GPIO_InitStruct.Pin = GPIO_PIN_10|GPIO_PIN_4;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : PC7 */
+  GPIO_InitStruct.Pin = GPIO_PIN_7;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : PB6 */
+  GPIO_InitStruct.Pin = GPIO_PIN_6;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
 /* USER CODE BEGIN MX_GPIO_Init_2 */
 /* USER CODE END MX_GPIO_Init_2 */
