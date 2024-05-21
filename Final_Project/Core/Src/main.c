@@ -45,6 +45,7 @@ ADC_HandleTypeDef hadc1;
 
 TIM_HandleTypeDef htim1;
 
+UART_HandleTypeDef huart1;
 UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
@@ -53,6 +54,10 @@ char msg[256];
 int lux1 = 0;
 int lux2 = 0;
 int lux3 = 0;
+int lux_threshold = 0;
+uint8_t lux1State = 0;
+uint8_t lux2State = 0;
+uint8_t lux3State = 0;
 
 uint32_t pMillis;
 uint32_t val1 = 0;
@@ -60,6 +65,17 @@ uint32_t val2 = 0;
 uint16_t distance1  = 0;
 uint16_t distance2  = 0;
 uint16_t distance3  = 0;
+uint16_t dist_threshold  = 0;
+uint8_t dist1State = 0;
+uint8_t dist2State = 0;
+uint8_t dist3State = 0;
+
+uint8_t pair1State = 0;
+uint8_t pair2State = 0;
+uint8_t pair3State = 0;
+
+uint8_t presentState = 0;
+uint8_t data[2000];
 
 /* USER CODE END PV */
 
@@ -69,52 +85,63 @@ static void MX_GPIO_Init(void);
 static void MX_USART2_UART_Init(void);
 static void MX_ADC1_Init(void);
 static void MX_TIM1_Init(void);
+static void MX_USART1_UART_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-void ADC_Select_CH0 (void)
-{
-	ADC_ChannelConfTypeDef sConfig = {0};
-	  /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
-	  */
-	  sConfig.Channel = ADC_CHANNEL_0;
-	  sConfig.Rank = 1;
-	  sConfig.SamplingTime = ADC_SAMPLETIME_28CYCLES;
-	  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
-	  {
-	    Error_Handler();
-	  }
+
+void configureADCChannel(uint32_t channel) {
+    ADC_ChannelConfTypeDef sConfig = {0};
+    sConfig.Channel = channel;
+    sConfig.Rank = 1;
+    sConfig.SamplingTime = ADC_SAMPLETIME_28CYCLES;
+    if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK) {
+        Error_Handler();
+    }
 }
 
-void ADC_Select_CH1 (void)
-{
-	ADC_ChannelConfTypeDef sConfig = {0};
-	  /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
-	  */
-	  sConfig.Channel = ADC_CHANNEL_1;
-	  sConfig.Rank = 1;
-	  sConfig.SamplingTime = ADC_SAMPLETIME_28CYCLES;
-	  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
-	  {
-	    Error_Handler();
-	  }
+uint32_t readADCValue(uint32_t channel) {
+    configureADCChannel(channel);
+    HAL_ADC_Start(&hadc1);
+    HAL_ADC_PollForConversion(&hadc1, 1000);
+    uint32_t value = HAL_ADC_GetValue(&hadc1);
+    HAL_ADC_Stop(&hadc1);
+    return value;
 }
 
-void ADC_Select_CH4 (void)
+uint32_t measureDistance(GPIO_TypeDef* trigPort, uint16_t trigPin, GPIO_TypeDef* echoPort, uint16_t echoPin) {
+    uint32_t pMillis = HAL_GetTick();
+    uint32_t val1, val2;
+
+    // Trigger the ultrasonic sensor
+    HAL_GPIO_WritePin(trigPort, trigPin, GPIO_PIN_SET);
+    __HAL_TIM_SET_COUNTER(&htim1, 0);
+    while (__HAL_TIM_GET_COUNTER(&htim1) < 10);
+    HAL_GPIO_WritePin(trigPort, trigPin, GPIO_PIN_RESET);
+
+    // Measure the echo response
+    pMillis = HAL_GetTick();
+    while (!(HAL_GPIO_ReadPin(echoPort, echoPin)) && pMillis + 10 > HAL_GetTick());
+    val1 = __HAL_TIM_GET_COUNTER(&htim1);
+
+    pMillis = HAL_GetTick();
+    while ((HAL_GPIO_ReadPin(echoPort, echoPin)) && pMillis + 50 > HAL_GetTick());
+    val2 = __HAL_TIM_GET_COUNTER(&htim1);
+
+    return (val2 - val1) * 0.034 / 2; // distance in centimeters
+}
+
+void printUART2(const char* prefix, uint32_t value) {
+    sprintf(msg, "%s: %d\r\n", prefix, value);
+    HAL_UART_Transmit(&huart2, (uint8_t*)msg, strlen(msg), 1000);
+}
+
+void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
 {
-	ADC_ChannelConfTypeDef sConfig = {0};
-	  /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
-	  */
-	  sConfig.Channel = ADC_CHANNEL_4;
-	  sConfig.Rank = 1;
-	  sConfig.SamplingTime = ADC_SAMPLETIME_28CYCLES;
-	  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
-	  {
-	    Error_Handler();
-	  }
+   HAL_UART_Transmit_IT(&huart1, data, sizeof (data));
 }
 
 /* USER CODE END 0 */
@@ -150,6 +177,7 @@ int main(void)
   MX_USART2_UART_Init();
   MX_ADC1_Init();
   MX_TIM1_Init();
+  MX_USART1_UART_Init();
   /* USER CODE BEGIN 2 */
   HAL_TIM_Base_Start(&htim1);
 
@@ -163,154 +191,58 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	  // LDR new
-	  ADC_Select_CH0();
-	  HAL_ADC_Start(&hadc1);
-	  HAL_ADC_PollForConversion(&hadc1, 1000);
-	  lux1 = HAL_ADC_GetValue(&hadc1);
-	  HAL_ADC_Stop(&hadc1);
+	  // LDR sensors
+	  uint32_t lux1 = readADCValue(ADC_CHANNEL_0);
+	  uint32_t lux2 = readADCValue(ADC_CHANNEL_1);
+	  uint32_t lux3 = readADCValue(ADC_CHANNEL_4);
 
-	  ADC_Select_CH1();
-	  HAL_ADC_Start(&hadc1);
-	  HAL_ADC_PollForConversion(&hadc1, 1000);
-	  lux2 = HAL_ADC_GetValue(&hadc1);
-	  HAL_ADC_Stop(&hadc1);
-
-	  ADC_Select_CH4();
-	  HAL_ADC_Start(&hadc1);
-	  HAL_ADC_PollForConversion(&hadc1, 1000);
-	  lux3 = HAL_ADC_GetValue(&hadc1);
-	  HAL_ADC_Stop(&hadc1);
-
-	  // Transmit lux1 value
-	  sprintf(msg, "lux1: %d\r\n", lux1);
-	  HAL_UART_Transmit(&huart2, (uint8_t*)msg, strlen(msg), 1000);
-
-	  // Transmit lux2 value
-	  sprintf(msg, "lux2: %d\r\n", lux2);
-	  HAL_UART_Transmit(&huart2, (uint8_t*)msg, strlen(msg), 1000);
-
-	  // Transmit lux3 value
-	  sprintf(msg, "lux3: %d\r\n", lux3);
-	  HAL_UART_Transmit(&huart2, (uint8_t*)msg, strlen(msg), 1000);
-
-	  // LDR 1
-//	  HAL_ADC_Start(&hadc1);
-//	  	  if (HAL_ADC_PollForConversion(&hadc1, 1000) == HAL_OK) {
-//	  		  lux2 = HAL_ADC_GetValue(&hadc1);
-//	  		  sprintf(msg, "lux2: %d\r\n", lux2);
-//	  		  HAL_UART_Transmit(&huart2, (uint8_t*)msg, strlen(msg), 1000);
-//
-//	  		  if (lux2 < 2300) {
-//	  			  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_SET);
-//	  		  } else {
-//	  			  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_RESET);
-//	  		  }
-//	  	  }
-
-//	  // LDR 2
-//	  ADC_Select_CH1();
-//	  HAL_ADC_Start(&hadc1);
-//	  if (HAL_ADC_PollForConversion(&hadc1, 1000) == HAL_OK) {
-//		  lux2 = HAL_ADC_GetValue(&hadc1);
-//		  sprintf(msg, "lux2: %d\r\n", lux2);
-//		  HAL_UART_Transmit(&huart2, (uint8_t*)msg, strlen(msg), 1000);
-//
-//		  if (lux2 < 2300) {
-//			  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_SET);
-//		  } else {
-//			  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_RESET);
-//		  }
-//	  }
-//	  HAL_ADC_Stop(&hadc1);
-//
-//	  // LDR 3
-//	  ADC_Select_CH4();
-//	  HAL_ADC_Start(&hadc1);
-//	  if (HAL_ADC_PollForConversion(&hadc1, 1000) == HAL_OK) {
-//		  lux3 = HAL_ADC_GetValue(&hadc1);
-//		  sprintf(msg, "lux3: %d\r\n", lux3);
-//		  HAL_UART_Transmit(&huart2, (uint8_t*)msg, strlen(msg), 1000);
-//
-//		  if (lux3 < 2300) {
-//			  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_SET);
-//		  } else {
-//			  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_RESET);
-//		  }
-//	  }
-//	  HAL_ADC_Stop(&hadc1);
-
-	  // Ultrasonic
-	  // ----- 1 ----- //
-	  // trig
-	  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_8, GPIO_PIN_SET);
-	  __HAL_TIM_SET_COUNTER(&htim1, 0);
-	  while (__HAL_TIM_GET_COUNTER (&htim1) < 10);
-	  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_8, GPIO_PIN_RESET);
-	  // echo
-	  // rising edge // to HIGH state
-	  pMillis = HAL_GetTick();
-	  while (!(HAL_GPIO_ReadPin (GPIOA, GPIO_PIN_7)) && pMillis + 10 >  HAL_GetTick());
-	  val1 = __HAL_TIM_GET_COUNTER (&htim1);
-	  // falling edge // to LOW state
-	  pMillis = HAL_GetTick();
-	  while ((HAL_GPIO_ReadPin (GPIOA, GPIO_PIN_7)) && pMillis + 50 > HAL_GetTick());
-	  val2 = __HAL_TIM_GET_COUNTER (&htim1);
-
-
-	  distance1 = (val2-val1) * 0.034/2; // centimeter
-
-	  sprintf (msg, "distance1: %d\r\n" , distance1);
-	  HAL_UART_Transmit(&huart2, msg, strlen(msg), 1000);
-
+	  // Ultrasonic sensors
+	  uint32_t distance1 = measureDistance(GPIOA, GPIO_PIN_8, GPIOA, GPIO_PIN_7);
 	  HAL_Delay(60);
-
-	  // ----- 2 ----- //
-	  // trig
-	  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, GPIO_PIN_SET);
-	  __HAL_TIM_SET_COUNTER(&htim1, 0);
-	  while (__HAL_TIM_GET_COUNTER (&htim1) < 10);
-	  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, GPIO_PIN_RESET);
-	  // echo
-	  // rising edge // to HIGH state
-	  pMillis = HAL_GetTick();
-	  while (!(HAL_GPIO_ReadPin (GPIOB, GPIO_PIN_6)) && pMillis + 10 >  HAL_GetTick());
-	  val1 = __HAL_TIM_GET_COUNTER (&htim1);
-	  // falling edge // to LOW state
-	  pMillis = HAL_GetTick();
-	  while ((HAL_GPIO_ReadPin (GPIOB, GPIO_PIN_6)) && pMillis + 50 > HAL_GetTick());
-	  val2 = __HAL_TIM_GET_COUNTER (&htim1);
-
-	  distance2 = (val2-val1) * 0.034/2; // centimeter
-
-	  sprintf (msg, "distance2: %d\r\n" , distance2);
-	  HAL_UART_Transmit(&huart2, msg, strlen(msg), 1000);
-
+	  uint32_t distance2 = measureDistance(GPIOB, GPIO_PIN_10, GPIOB, GPIO_PIN_6);
 	  HAL_Delay(60);
+	  uint32_t distance3 = measureDistance(GPIOB, GPIO_PIN_4, GPIOC, GPIO_PIN_7);
 
-	  // ----- 3 ----- //
-	  // trig
-	  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_4, GPIO_PIN_SET);
-	  __HAL_TIM_SET_COUNTER(&htim1, 0);
-	  while (__HAL_TIM_GET_COUNTER (&htim1) < 10);
-	  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_4, GPIO_PIN_RESET);
-	  // echo
-	  // rising edge // to HIGH state
-	  pMillis = HAL_GetTick();
-	  while (!(HAL_GPIO_ReadPin (GPIOC, GPIO_PIN_7)) && pMillis + 10 >  HAL_GetTick());
-	  val1 = __HAL_TIM_GET_COUNTER (&htim1);
-	  // falling edge // to LOW state
-	  pMillis = HAL_GetTick();
-	  while ((HAL_GPIO_ReadPin (GPIOC, GPIO_PIN_7)) && pMillis + 50 > HAL_GetTick());
-	  val2 = __HAL_TIM_GET_COUNTER (&htim1);
+	  // Logic
+	  lux_threshold = 3400;
+	  if (lux1 < lux_threshold) lux1State = 1;
+	  else lux1State = 0;
+	  if (lux2 < lux_threshold) lux2State = 1;
+	  else lux2State = 0;
+	  if (lux3 < lux_threshold) lux3State = 1;
+	  else lux3State = 0;
 
-	  distance3 = (val2-val1) * 0.034/2; // centimeter
+	  dist_threshold = 10;
+	  if (distance1 < dist_threshold) dist1State = 1;
+	  else dist1State = 0;
+	  if (distance2 < dist_threshold) dist2State = 1;
+	  else dist2State = 0;
+	  if (distance3 < dist_threshold) dist3State = 1;
+	  else dist3State = 0;
+	  	  // pair
+	  if (lux1State == 1 && dist1State == 1) pair1State = 1;
+	  else pair1State = 0;
+	  if (lux2State == 1 && dist2State == 1) pair2State = 1;
+	  else pair2State = 0;
+	  if (lux3State == 1 && dist3State == 1) pair3State = 1;
+	  else pair3State = 0;
 
-	  sprintf (msg, "distance3: %d\r\n" , distance3);
-	  HAL_UART_Transmit(&huart2, msg, strlen(msg), 1000);
+	  uint8_t sumPairState = pair1State + pair2State + pair3State;
+	  if (sumPairState >= 2) presentState = 1;
+	  else presentState = 0;
+
+	  // print via UART2
+	  printUART2("lux1", lux1);
+	  printUART2("lux2", lux2);
+	  printUART2("lux3", lux3);
+	  printUART2("distance1", distance1);
+	  printUART2("distance2", distance2);
+	  printUART2("distance3", distance3);
+	  printUART2("presentState", presentState);
 
 
 	  HAL_Delay(1000);
+
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -399,34 +331,34 @@ static void MX_ADC1_Init(void)
   {
     Error_Handler();
   }
-//
-//  /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
-//  */
-//  sConfig.Channel = ADC_CHANNEL_0;
-//  sConfig.Rank = 1;
-//  sConfig.SamplingTime = ADC_SAMPLETIME_3CYCLES;
-//  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
-//  {
-//    Error_Handler();
-//  }
-//
-//  /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
-//  */
-//  sConfig.Channel = ADC_CHANNEL_1;
-//  sConfig.Rank = 2;
-//  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
-//  {
-//    Error_Handler();
-//  }
-//
-//  /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
-//  */
-//  sConfig.Channel = ADC_CHANNEL_4;
-//  sConfig.Rank = 3;
-//  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
-//  {
-//    Error_Handler();
-//  }
+
+  /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
+  */
+  sConfig.Channel = ADC_CHANNEL_0;
+  sConfig.Rank = 1;
+  sConfig.SamplingTime = ADC_SAMPLETIME_3CYCLES;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
+  */
+  sConfig.Channel = ADC_CHANNEL_1;
+  sConfig.Rank = 2;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
+  */
+  sConfig.Channel = ADC_CHANNEL_4;
+  sConfig.Rank = 3;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
   /* USER CODE BEGIN ADC1_Init 2 */
 
   /* USER CODE END ADC1_Init 2 */
@@ -476,6 +408,39 @@ static void MX_TIM1_Init(void)
   /* USER CODE BEGIN TIM1_Init 2 */
 
   /* USER CODE END TIM1_Init 2 */
+
+}
+
+/**
+  * @brief USART1 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_USART1_UART_Init(void)
+{
+
+  /* USER CODE BEGIN USART1_Init 0 */
+
+  /* USER CODE END USART1_Init 0 */
+
+  /* USER CODE BEGIN USART1_Init 1 */
+
+  /* USER CODE END USART1_Init 1 */
+  huart1.Instance = USART1;
+  huart1.Init.BaudRate = 115200;
+  huart1.Init.WordLength = UART_WORDLENGTH_8B;
+  huart1.Init.StopBits = UART_STOPBITS_1;
+  huart1.Init.Parity = UART_PARITY_NONE;
+  huart1.Init.Mode = UART_MODE_TX_RX;
+  huart1.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+  huart1.Init.OverSampling = UART_OVERSAMPLING_16;
+  if (HAL_UART_Init(&huart1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN USART1_Init 2 */
+
+  /* USER CODE END USART1_Init 2 */
 
 }
 
