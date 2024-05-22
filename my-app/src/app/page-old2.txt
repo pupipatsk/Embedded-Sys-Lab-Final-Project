@@ -1,0 +1,109 @@
+'use client'
+import React, { useState, useEffect } from 'react';
+import { getDatabase, ref, set, onValue } from "firebase/database";
+import { database } from './firebaseConfig';
+
+function formatDateAndTime() {
+  // Create a Date object for the current date and time
+  const date = new Date();
+
+  // Set options for formatting the date and time
+  const options = {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+    timeZone: 'Asia/Bangkok'
+  };
+
+  // Format the date and time
+  const formattedDate = date.toLocaleDateString('en-GB', options);
+  const formattedTime = date.toLocaleTimeString('en-GB', options);
+
+  // Return formatted date and time
+  return {
+    date: formattedDate,
+    time: formattedTime
+  };
+}
+
+interface Log {
+  id: string;
+  username: string;
+  date: string;
+  time: string;
+}
+
+function App() {
+  const [userId, setUserId] = useState('');
+  const [name, setName] = useState('');
+  const [table, setTable] = useState<Log[]>([]);
+
+  useEffect(() => {
+    const tableRef = ref(database, 'users');
+    onValue(tableRef, (snapshot) => {
+      const tableData = snapshot.val();
+      if (tableData) {
+        const tableList = Object.keys(tableData).map((key) => ({
+          id: key,
+          ...tableData[key]
+        }));
+        setTable(tableList);
+      }
+    });
+  }, []);
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    const { date, time } = formatDateAndTime();
+    writeUserData(userId, name, date, time);
+  };
+
+  const writeUserData = (userId: string, name: string, date: string, time: string) => {
+    set(ref(database, 'users/' + userId), {
+      username: name,
+      date: date,
+      time: time
+    }).then(() => {
+      console.log("Data saved successfully!");
+    }).catch((error) => {
+      console.log("Data could not be saved." + error);
+    });
+  };
+
+  return (
+    <div className="App">
+      <form onSubmit={handleSubmit}>
+        <input 
+          type="text" 
+          placeholder="User ID" 
+          value={userId} 
+          onChange={(e) => setUserId(e.target.value)} 
+        />
+        <input 
+          type="text" 
+          placeholder="Name" 
+          value={name} 
+          onChange={(e) => setName(e.target.value)} 
+        />
+        <button type="submit">Save User</button>
+      </form>
+      <h2>Table List</h2>
+      <ul>
+        {table.map((user) => (
+          <tr key={user.id}>
+            <td>User ID: {user.id}</td>
+            <td>Username: {user.username}</td>
+            <td>Date: {user.date}</td>
+            <td>Time: {user.time}</td>
+          </tr>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+export default App;
