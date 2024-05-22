@@ -18,6 +18,7 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include "cmsis_os.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -44,40 +45,41 @@
 ADC_HandleTypeDef hadc1;
 
 TIM_HandleTypeDef htim1;
+TIM_HandleTypeDef htim2;
 
 UART_HandleTypeDef huart1;
 UART_HandleTypeDef huart2;
 
+osThreadId defaultTaskHandle;
+osThreadId myTask02Handle;
 /* USER CODE BEGIN PV */
 char msg[256];
-
-int lux1 = 0;
-int lux2 = 0;
-int lux3 = 0;
-int lux_threshold = 0;
+// LDR
+uint32_t lux1 = 0;
+uint32_t lux2 = 0;
+uint32_t lux3 = 0;
+uint32_t lux_threshold = 0;
 uint8_t lux1State = 0;
 uint8_t lux2State = 0;
 uint8_t lux3State = 0;
-
-uint32_t pMillis;
-uint32_t val1 = 0;
-uint32_t val2 = 0;
-uint16_t distance1  = 0;
-uint16_t distance2  = 0;
-uint16_t distance3  = 0;
-uint16_t dist_threshold  = 0;
+// Ultrasonic
+uint32_t distance1  = 0;
+uint32_t distance2  = 0;
+uint32_t distance3  = 0;
+uint32_t dist_threshold  = 0;
 uint8_t dist1State = 0;
 uint8_t dist2State = 0;
 uint8_t dist3State = 0;
-
+// Logic
 uint8_t pair1State = 0;
 uint8_t pair2State = 0;
 uint8_t pair3State = 0;
 
 uint8_t presentState = 0;
+uint8_t oldState = 0;
 uint8_t RxState = 0;
-int state1CycleCount = 0;
-int sentCount = 0;
+uint16_t state1CycleCount = 0;
+uint16_t sentCount = 0;
 
 /* USER CODE END PV */
 
@@ -88,6 +90,10 @@ static void MX_USART2_UART_Init(void);
 static void MX_ADC1_Init(void);
 static void MX_TIM1_Init(void);
 static void MX_USART1_UART_Init(void);
+static void MX_TIM2_Init(void);
+void StartDefaultTask(void const * argument);
+void StartTask02(void const * argument);
+
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -111,6 +117,7 @@ uint32_t readADCValue(uint32_t channel) {
     HAL_ADC_PollForConversion(&hadc1, 1000);
     uint32_t value = HAL_ADC_GetValue(&hadc1);
     HAL_ADC_Stop(&hadc1);
+
     return value;
 }
 
@@ -118,17 +125,18 @@ uint32_t measureDistance(GPIO_TypeDef* trigPort, uint16_t trigPin, GPIO_TypeDef*
     uint32_t pMillis = HAL_GetTick();
     uint32_t val1, val2;
 
-    // Trigger the ultrasonic sensor
+    // Trigger
     HAL_GPIO_WritePin(trigPort, trigPin, GPIO_PIN_SET);
     __HAL_TIM_SET_COUNTER(&htim1, 0);
     while (__HAL_TIM_GET_COUNTER(&htim1) < 10);
     HAL_GPIO_WritePin(trigPort, trigPin, GPIO_PIN_RESET);
 
-    // Measure the echo response
+    // Echo
+    	// rising edge
     pMillis = HAL_GetTick();
     while (!(HAL_GPIO_ReadPin(echoPort, echoPin)) && pMillis + 10 > HAL_GetTick());
     val1 = __HAL_TIM_GET_COUNTER(&htim1);
-
+    	// falling edge
     pMillis = HAL_GetTick();
     while ((HAL_GPIO_ReadPin(echoPort, echoPin)) && pMillis + 50 > HAL_GetTick());
     val2 = __HAL_TIM_GET_COUNTER(&htim1);
@@ -180,96 +188,59 @@ int main(void)
   MX_ADC1_Init();
   MX_TIM1_Init();
   MX_USART1_UART_Init();
+  MX_TIM2_Init();
   /* USER CODE BEGIN 2 */
   HAL_TIM_Base_Start(&htim1);
+  HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_1);
+  TIM2->CCR1 = 0;
 
   HAL_GPIO_WritePin(GPIOA, GPIO_PIN_8, GPIO_PIN_RESET);
   HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, GPIO_PIN_RESET);
   HAL_GPIO_WritePin(GPIOB, GPIO_PIN_4, GPIO_PIN_RESET);
 
-  HAL_UART_Transmit_IT(&huart1, &presentState, sizeof(presentState)); // initial state
+  // initial 0 state
+  HAL_UART_Transmit_IT(&huart1, &presentState, sizeof(presentState));
+
   /* USER CODE END 2 */
 
+  /* USER CODE BEGIN RTOS_MUTEX */
+  /* add mutexes, ... */
+  /* USER CODE END RTOS_MUTEX */
+
+  /* USER CODE BEGIN RTOS_SEMAPHORES */
+  /* add semaphores, ... */
+  /* USER CODE END RTOS_SEMAPHORES */
+
+  /* USER CODE BEGIN RTOS_TIMERS */
+  /* start timers, add new ones, ... */
+  /* USER CODE END RTOS_TIMERS */
+
+  /* USER CODE BEGIN RTOS_QUEUES */
+  /* add queues, ... */
+  /* USER CODE END RTOS_QUEUES */
+
+  /* Create the thread(s) */
+  /* definition and creation of defaultTask */
+  osThreadDef(defaultTask, StartDefaultTask, osPriorityNormal, 0, 128);
+  defaultTaskHandle = osThreadCreate(osThread(defaultTask), NULL);
+
+  /* definition and creation of myTask02 */
+  osThreadDef(myTask02, StartTask02, osPriorityIdle, 0, 128);
+  myTask02Handle = osThreadCreate(osThread(myTask02), NULL);
+
+  /* USER CODE BEGIN RTOS_THREADS */
+  /* add threads, ... */
+  /* USER CODE END RTOS_THREADS */
+
+  /* Start scheduler */
+  osKernelStart();
+
+  /* We should never get here as control is now taken by the scheduler */
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	  // LDR sensors
-	  uint32_t lux1 = readADCValue(ADC_CHANNEL_0);
-	  uint32_t lux2 = readADCValue(ADC_CHANNEL_1);
-	  uint32_t lux3 = readADCValue(ADC_CHANNEL_4);
-
-	  // Ultrasonic sensors
-	  uint32_t distance1 = measureDistance(GPIOA, GPIO_PIN_8, GPIOA, GPIO_PIN_7);
-	  HAL_Delay(60);
-	  uint32_t distance2 = measureDistance(GPIOB, GPIO_PIN_10, GPIOB, GPIO_PIN_6);
-	  HAL_Delay(60);
-	  uint32_t distance3 = measureDistance(GPIOB, GPIO_PIN_4, GPIOC, GPIO_PIN_7);
-
-	  // Logic
-	  lux_threshold = 3400;
-	  if (lux1 < lux_threshold) lux1State = 1;
-	  else lux1State = 0;
-	  if (lux2 < lux_threshold) lux2State = 1;
-	  else lux2State = 0;
-	  if (lux3 < lux_threshold) lux3State = 1;
-	  else lux3State = 0;
-
-	  dist_threshold = 10;
-	  if (distance1 < dist_threshold) dist1State = 1;
-	  else dist1State = 0;
-	  if (distance2 < dist_threshold) dist2State = 1;
-	  else dist2State = 0;
-	  if (distance3 < dist_threshold) dist3State = 1;
-	  else dist3State = 0;
-	  	  // pair
-	  if (lux1State == 1 && dist1State == 1) pair1State = 1;
-	  else pair1State = 0;
-	  if (lux2State == 1 && dist2State == 1) pair2State = 1;
-	  else pair2State = 0;
-	  if (lux3State == 1 && dist3State == 1) pair3State = 1;
-	  else pair3State = 0;
-
-	  uint8_t sumPairState = pair1State + pair2State + pair3State;
-	  uint8_t oldState = presentState;
-	  if (sumPairState >= 2) {
-		  presentState = 1;
-		  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_SET);
-		  state1CycleCount++;
-		  if (state1CycleCount == 5) {
-			  HAL_UART_Transmit_IT(&huart1, &presentState, sizeof(presentState));
-			  RxState = presentState;
-		  }
-	  }
-	  else {
-		  presentState = 0;
-		  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_RESET);
-		  state1CycleCount = 0;
-		  // falling edge
-		  if (oldState == 1 && presentState == 0) {
-			  if (presentState != RxState) {
-				  HAL_UART_Transmit_IT(&huart1, &presentState, sizeof(presentState));
-				  RxState = presentState;
-			  }
-		  }
-	  }
-
-	  // print via UART2
-	  printUART2("lux1", lux1);
-	  printUART2("lux2", lux2);
-	  printUART2("lux3", lux3);
-	  printUART2("distance1", distance1);
-	  printUART2("distance2", distance2);
-	  printUART2("distance3", distance3);
-
-	  printUART2("oldState", oldState);
-	  printUART2("presentState", presentState);
-	  printUART2("state1CycleCount", state1CycleCount);
-	  printUART2("RxState", RxState);
-	  printUART2("sentCount", sentCount);
-
-	  HAL_Delay(1000);
-
+	  // use Thread instead
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -439,6 +410,65 @@ static void MX_TIM1_Init(void)
 }
 
 /**
+  * @brief TIM2 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM2_Init(void)
+{
+
+  /* USER CODE BEGIN TIM2_Init 0 */
+
+  /* USER CODE END TIM2_Init 0 */
+
+  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+  TIM_OC_InitTypeDef sConfigOC = {0};
+
+  /* USER CODE BEGIN TIM2_Init 1 */
+
+  /* USER CODE END TIM2_Init 1 */
+  htim2.Instance = TIM2;
+  htim2.Init.Prescaler = 83;
+  htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim2.Init.Period = 99;
+  htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+  if (HAL_TIM_ConfigClockSource(&htim2, &sClockSourceConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_TIM_PWM_Init(&htim2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim2, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sConfigOC.OCMode = TIM_OCMODE_PWM1;
+  sConfigOC.Pulse = 0;
+  sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
+  sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
+  if (HAL_TIM_PWM_ConfigChannel(&htim2, &sConfigOC, TIM_CHANNEL_1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM2_Init 2 */
+
+  /* USER CODE END TIM2_Init 2 */
+  HAL_TIM_MspPostInit(&htim2);
+
+}
+
+/**
   * @brief USART1 Initialization Function
   * @param None
   * @retval None
@@ -572,6 +602,115 @@ static void MX_GPIO_Init(void)
 /* USER CODE BEGIN 4 */
 
 /* USER CODE END 4 */
+
+/* USER CODE BEGIN Header_StartDefaultTask */
+/**
+  * @brief  Function implementing the defaultTask thread.
+  * @param  argument: Not used
+  * @retval None
+  */
+/* USER CODE END Header_StartDefaultTask */
+void StartDefaultTask(void const * argument)
+{
+  /* USER CODE BEGIN 5 */
+  /* Infinite loop */
+  for(;;)
+  {
+	  // LDR sensors
+	  lux1 = readADCValue(ADC_CHANNEL_0);
+	  lux2 = readADCValue(ADC_CHANNEL_1);
+	  lux3 = readADCValue(ADC_CHANNEL_4);
+
+	  // Ultrasonic sensors
+	  distance1 = measureDistance(GPIOA, GPIO_PIN_8, GPIOA, GPIO_PIN_7);
+	  osDelay(60);
+	  distance2 = measureDistance(GPIOB, GPIO_PIN_10, GPIOB, GPIO_PIN_6);
+	  osDelay(60);
+	  distance3 = measureDistance(GPIOB, GPIO_PIN_4, GPIOC, GPIO_PIN_7);
+
+	  // Logic
+		  // LDR
+	  lux_threshold = 3500;
+	  lux1State = (lux1 < lux_threshold) ? 1 : 0;
+	  lux2State = (lux2 < lux_threshold) ? 1 : 0;
+	  lux3State = (lux3 < lux_threshold) ? 1 : 0;
+		  // Ultrasonic
+	  dist_threshold = 10;
+	  dist1State = (distance1 < dist_threshold) ? 1 : 0;
+	  dist2State = (distance2 < dist_threshold) ? 1 : 0;
+	  dist3State = (distance3 < dist_threshold) ? 1 : 0;
+		  // pair
+	  pair1State = (lux1State && dist1State) ? 1 : 0;
+	  pair2State = (lux2State && dist2State) ? 1 : 0;
+	  pair3State = (lux3State && dist3State) ? 1 : 0;
+		  // calculate
+	  oldState = presentState;
+	  uint8_t sumPairState = pair1State + pair2State + pair3State;
+	  if (sumPairState >= 2) {
+		  presentState = 1;
+		  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_SET);
+		  state1CycleCount++;
+		  if (state1CycleCount == 5) {
+			  HAL_UART_Transmit_IT(&huart1, &presentState, sizeof(presentState));
+			  RxState = presentState;
+		  }
+		  if (state1CycleCount >= 5) {
+
+		  }
+	  }
+	  else {
+		  presentState = 0;
+		  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_RESET);
+		  state1CycleCount = 0;
+		  // falling edge
+		  if (oldState == 1 && presentState == 0) {
+			  if (presentState != RxState) {
+				  HAL_UART_Transmit_IT(&huart1, &presentState, sizeof(presentState));
+				  RxState = presentState;
+			  }
+		  }
+	  }
+
+	  // print via UART2
+	  printUART2("lux1", lux1);
+	  printUART2("lux2", lux2);
+	  printUART2("lux3", lux3);
+	  printUART2("distance1", distance1);
+	  printUART2("distance2", distance2);
+	  printUART2("distance3", distance3);
+
+	  printUART2("oldState", oldState);
+	  printUART2("presentState", presentState);
+	  printUART2("state1CycleCount", state1CycleCount);
+	  printUART2("RxState", RxState);
+	  printUART2("sentCount", sentCount);
+
+	  osDelay(1000);
+  }
+  /* USER CODE END 5 */
+}
+
+/* USER CODE BEGIN Header_StartTask02 */
+/**
+* @brief Function implementing the myTask02 thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_StartTask02 */
+void StartTask02(void const * argument)
+{
+  /* USER CODE BEGIN StartTask02 */
+  /* Infinite loop */
+
+  for(;;)
+  {
+	  if (presentState == 1 && state1CycleCount >= 5) {
+		  TIM2->CCR1 = 50;
+	  }
+	  else TIM2->CCR1 = 0;
+  }
+  /* USER CODE END StartTask02 */
+}
 
 /**
   * @brief  This function is executed in case of error occurrence.
