@@ -36,7 +36,7 @@ function formatDateAndTime() {
     year: "numeric",
     timeZone: "Asia/Bangkok"
   };
-  
+
   const timeOptions: Intl.DateTimeFormatOptions = {
     hour: "2-digit",
     minute: "2-digit",
@@ -62,7 +62,7 @@ function App() {
   useEffect(() => {
     const tableRef = ref(database, 'logs');
     const sortedByDateQuery = query(tableRef, orderByKey(), limitToLast(10));
-    
+
     onValue(sortedByDateQuery, (snapshot) => {
       const tableData = snapshot.val();
       if (tableData) {
@@ -140,108 +140,85 @@ function App() {
     });
   };
 
-  const [parking , setParking] = useState(false);
+  const [parking, setParking] = useState(false);
 
   return (
     <div className="App">
       <nav>
         <div>
-        <Image 
-          src = {arai}
-          height="70"
-          alt=""
-          className='ml-3'
-        />
+          <Image
+            src={arai}
+            height="70"
+            alt=""
+            className='ml-3'
+          />
         </div>
         <div className="col-md-4 col-sm-5 col-xs-12 pr-5">
-            <ul>
-              <li><a href="https://github.com/pupipatsk/Embedded-Sys-Lab-Final-Project" className="github">
-              <Image 
-                src = {github}
+          <ul>
+            <li><a href="https://github.com/pupipatsk/Embedded-Sys-Lab-Final-Project" className="github">
+              <Image
+                src={github}
                 height="50"
                 alt=""
                 className='ml-3'
               />
-              </a></li>
-            </ul>
-          </div>
+            </a></li>
+          </ul>
+        </div>
       </nav>
       <div className="curstate">
-      <div className = {parking ? "text-chadchart text-2xl py-2 text-red-500":"text-chadchart text-2xl py-2"}> {parking ? "มีรถจอด":"ไม่มีรถจอด"}</div>
-      <div id="container">
-        <div>
-          <Image 
-            src = {parking ? notOk:ok}
+        <div className={parking ? "text-chadchart text-2xl py-2 text-red-500" : "text-chadchart text-2xl py-2"}> {parking ? "มีรถจอด" : "ไม่มีรถจอด"}</div>
+        <div id="container">
+          <div>
+            <Image
+              src={parking ? notOk : ok}
+              height="296"
+              alt=""
+              id="meme"
+            />
+          </div>
+          <Image
+            src={parking ? notOkImage : okImage}
             height="296"
             alt=""
             id="meme"
           />
         </div>
-        <Image 
-          src = {parking ? notOkImage:okImage}
-          height="296"
-          alt=""
-          id="meme"
-        />
+        <div className="text-chadchart text-2xl py-2">Detected History</div>
+        <table id="myTable" style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+          <tbody>
+            {tables.map((log) => (
+              <tr key={log.id}>
+                <td>{log.date}</td>
+                <td>{log.time}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div className="h-10"></div>
+      <footer className="site-footer">
+        <div className="container1">
+          <div className="row">
+            <div className="col-sm-12 col-md-6">
+              <h6>About</h6>
+              <p className="text-justify">การตรวจจับการฝ่าฝืนจอดรถในที่ห้ามจอด
+                เพื่อแก้ปัญหาการจราจรติดที่เกิดจากการจอดในที่ห้ามจอด โดยใช้ sensorวัดแสงและระยะทาง โดยจะมีการส่งสัญญาณเตือนผ่านลำโพง และแสดงสถานะ/ประวัติขึ้นweb</p>
+            </div>
 
-      </div>
-      <div className = "text-chadchart text-2xl py-2">Detected History</div>
-      <table id = "myTable" style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-        <tbody>
-        {tables.map((log) => (
-          <tr key={log.id}>
-            <td>{log.date}</td>
-            <td>{log.time}</td>
-          </tr>
-        ))}
-        </tbody>
-      </table>
-      </div>
-      <div className = "h-10"></div>
-    <footer className="site-footer">
-      <div className="container1">
-        <div className="row">
-          <div className="col-sm-12 col-md-6">
-            <h6>About</h6>
-            <p className="text-justify">คำอธิบายคำอธิบายคำอธิบายคำอธิบายคำอธิบายคำอธิบายคำอธิบายคำอธิบายคำอธิบายคำอธิบายคำอธิบายคำอธิบายคำอธิบายคำอธิบายคำอธิบายคำอธิบายคำอธิบาย</p>
+            <div className="col-xs-6 col-md-3">
+              <h6>จัดทำโดย</h6>
+              <ul className="footer-links">
+                <li>1.นาย ชญานิน คงเสรีกุล 6532035021</li>
+                <li>2.นาย ชนาธิป พัฒนเพ็ญ 6532040021</li>
+                <li>3.นาย ธีภพ เล้าพรพิชยานุวัฒน์ 6532100021</li>
+                <li>4.นาย ภูภิพัทธ์ สิงขร 6532142421</li>
+              </ul>
+            </div>
           </div>
-
-          <div className="col-xs-6 col-md-3">
-            <h6>จัดทำโดย</h6>
-            <ul className="footer-links">
-              <li>1.หก่ดสาหกด</li>
-              <li>2.หกดหกดกหด</li>
-              <li>3.หกดหกดหกด</li>
-              <li>4.หกดหกดหกด</li>
-            </ul>
-          </div>
-
- 
         </div>
-      </div>
-      <div className="container">
-        <div className="row">
-          {/* <div className="col-md-8 col-sm-6 col-xs-12">
-            <p className="copyright-text">Copyright &copy; 2017 All Rights Reserved by 
-         <a href="#">Scanfcode</a>.
-            </p>
-          </div> */}
-
-          {/* <div className="col-md-4 col-sm-5 col-xs-12 p-50 mr-20">
-            <ul className="social-icons">
-              <li><a className="facebook" href="#"><i className="fa fa-facebook"></i></a></li>
-              <li><a className="twitter" href="#"><i className="fa fa-twitter"></i></a></li>
-              <li><a className="dribbble" href="#"><i className="fa fa-dribbble"></i></a></li>
-              <li><a className="linkedin" href="#"><i className="fa fa-linkedin"></i></a></li>   
-            </ul>
-          </div> */}
-        </div>
-      </div>
-</footer>
+      </footer>
     </div>
-
-
-
   );
 }
 
