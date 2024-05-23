@@ -10,7 +10,13 @@ import { database } from './firebaseConfig';
 import axios from 'axios';
 
 import notOkImage from './notok.jpg';
+import okImage from './ok.jpg';
+import arai from './arai.png'
+import notOk from './carNOTOK.jpg'
+import ok from './carOK.jpg'
+import github from './githubIcon.png'
 import { limit } from 'firebase/firestore';
+import { tree } from 'next/dist/build/templates/app-page';
 
 interface Log {
   id: string;
@@ -113,7 +119,7 @@ function App() {
 
     fetchData(); // Fetch initial data
 
-    const intervalId = setInterval(fetchData, 5000); // Fetch data every 5 seconds
+    const intervalId = setInterval(fetchData, 3600000); // Fetch data every 1 hours
 
     return () => {
       isMounted = false;
@@ -134,23 +140,53 @@ function App() {
     });
   };
 
+  const [parking , setParking] = useState(false);
+
   return (
     <div className="App">
-      <div className="curstate">
-      <div className = "text-chadchart text-2xl py-2">มีรถจอด</div>
-      <div id="container">
-        <div id="redgreen"></div>
+      <nav>
+        <div>
         <Image 
-          src = {notOkImage}
+          src = {arai}
+          height="70"
+          alt=""
+          className='ml-3'
+        />
+        </div>
+        <div className="col-md-4 col-sm-5 col-xs-12 pr-5">
+            <ul>
+              <li><a href="https://github.com/pupipatsk/Embedded-Sys-Lab-Final-Project" className="github">
+              <Image 
+                src = {github}
+                height="50"
+                alt=""
+                className='ml-3'
+              />
+              </a></li>
+            </ul>
+          </div>
+      </nav>
+      <div className="curstate">
+      <div className = {parking ? "text-chadchart text-2xl py-2 text-red-500":"text-chadchart text-2xl py-2"}> {parking ? "มีรถจอด":"ไม่มีรถจอด"}</div>
+      <div id="container">
+        <div>
+          <Image 
+            src = {parking ? notOk:ok}
+            height="296"
+            alt=""
+            id="meme"
+          />
+        </div>
+        <Image 
+          src = {parking ? notOkImage:okImage}
           height="296"
           alt=""
           id="meme"
         />
+
       </div>
-      
       <div className = "text-chadchart text-2xl py-2">Detected History</div>
       <table id = "myTable" style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-          
         <tbody>
         {tables.map((log) => (
           <tr key={log.id}>
@@ -162,21 +198,51 @@ function App() {
       </table>
       </div>
       <div className = "h-10"></div>
+    <footer className="site-footer">
+      <div className="container1">
+        <div className="row">
+          <div className="col-sm-12 col-md-6">
+            <h6>About</h6>
+            <p className="text-justify">คำอธิบายคำอธิบายคำอธิบายคำอธิบายคำอธิบายคำอธิบายคำอธิบายคำอธิบายคำอธิบายคำอธิบายคำอธิบายคำอธิบายคำอธิบายคำอธิบายคำอธิบายคำอธิบายคำอธิบาย</p>
+          </div>
+
+          <div className="col-xs-6 col-md-3">
+            <h6>จัดทำโดย</h6>
+            <ul className="footer-links">
+              <li>1.หก่ดสาหกด</li>
+              <li>2.หกดหกดกหด</li>
+              <li>3.หกดหกดหกด</li>
+              <li>4.หกดหกดหกด</li>
+            </ul>
+          </div>
+
+ 
+        </div>
+      </div>
+      <div className="container">
+        <div className="row">
+          {/* <div className="col-md-8 col-sm-6 col-xs-12">
+            <p className="copyright-text">Copyright &copy; 2017 All Rights Reserved by 
+         <a href="#">Scanfcode</a>.
+            </p>
+          </div> */}
+
+          {/* <div className="col-md-4 col-sm-5 col-xs-12 p-50 mr-20">
+            <ul className="social-icons">
+              <li><a className="facebook" href="#"><i className="fa fa-facebook"></i></a></li>
+              <li><a className="twitter" href="#"><i className="fa fa-twitter"></i></a></li>
+              <li><a className="dribbble" href="#"><i className="fa fa-dribbble"></i></a></li>
+              <li><a className="linkedin" href="#"><i className="fa fa-linkedin"></i></a></li>   
+            </ul>
+          </div> */}
+        </div>
+      </div>
+</footer>
     </div>
+
+
+
   );
 }
 
 export default App;
-
-/*
-      <h1>logs</h1>
-      {error && <p>{error}</p>}
-      <ul>
-        {data.val}
-      </ul>
-      <h1>{currentState % 2}</h1>
-      <ul>
-        {data.val % 2}
-      </ul>
-      <div className = 
-*/
