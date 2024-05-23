@@ -1,0 +1,128 @@
+'use client'
+
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
+
+import { getDatabase, ref, set } from "firebase/database";
+import { database } from './firebaseConfig';
+
+function formatDateAndTime() {
+  // Create a Date object from the ISO date string
+  const date = new Date();
+
+  // Set the options for formatting the date
+  const dateOptions = {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    timeZone: 'Asia/Bangkok'
+  };
+
+  // Set the options for formatting the time
+  const timeOptions = {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+    timeZone: 'Asia/Bangkok'
+  };
+
+  // Format the date and time using toLocaleString()
+  const formattedDate = date.toLocaleDateString('en-GB', dateOptions);
+  const formattedTime = date.toLocaleTimeString('en-GB', timeOptions);
+
+  // Return formatted date and time
+  return {
+    date: formattedDate,
+    time: formattedTime
+  };
+}
+
+function App() {
+  const [userId, setUserId] = useState('');
+  const [name, setName] = useState('');
+  const [time, setTime] = useState('');
+
+  const splitted = formatDateAndTime()
+
+  const writeUserData = (userId:String, name:String, time:String) => {
+    set(ref(database, 'users/' + userId), {
+      username: name,
+      date: splitted.date,
+      time: splitted.time
+    }).then(() => {
+      console.log("Data saved successfully!");
+    }).catch((error) => {
+      console.log("Data could not be saved." + error);
+    });
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    writeUserData(userId, name, time);
+  };
+
+  return (
+    <div className="App">
+      <form onSubmit={handleSubmit}>
+        <input 
+          type="text" 
+          placeholder="User ID" 
+          value={userId} 
+          onChange={(e) => setUserId(e.target.value)} 
+        />
+        <input 
+          type="text" 
+          placeholder="Name" 
+          value={name} 
+          onChange={(e) => setName(e.target.value)} 
+        />
+        <button type="submit">Save User</button>
+      </form>
+    </div>
+  );
+}
+
+export default App;
+
+//export default MyComponent;
+
+const MyComponent = () => {
+  const [data, setData] = useState([]);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const response = await axios.get('https://catfact.ninja/fact');
+        setData(response.data);
+        setError(null);
+      } catch (error) {
+        console.error('Error fetching data:', error);
+        setError('Error fetching data. Please try again later.');
+      }
+    };
+
+    fetchData(); // Fetch initial data
+
+    // Fetch data every 5 seconds
+    const intervalId = setInterval(() => {
+      fetchData();
+    }, 5000);
+
+    // Cleanup function to clear the interval when the component unmounts
+    return () => {
+      clearInterval(intervalId);
+    };
+  }, []); // Empty dependency array ensures that this effect runs only once
+
+  return (
+    <div>
+      <h1>Users</h1>
+      {error && <p>{error}</p>}
+      <ul>
+        {data.fact}
+      </ul>
+    </div>
+  );
+};

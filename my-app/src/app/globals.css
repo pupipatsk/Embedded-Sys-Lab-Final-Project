@@ -1,0 +1,107 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+:root {
+  --foreground-rgb: 0, 0, 0;
+  --background-start-rgb: 214, 219, 220;
+  --background-end-rgb: 255, 255, 255;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --foreground-rgb: 255, 255, 255;
+    --background-start-rgb: 0, 0, 0;
+    --background-end-rgb: 0, 0, 0;
+  }
+}
+
+body {
+  color: rgb(var(--foreground-rgb));
+  background: linear-gradient(
+      to bottom,
+      transparent,
+      rgb(var(--background-end-rgb))
+    )
+    rgb(var(--background-start-rgb));
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}
+*/
+
+html,
+body {
+    height: 100%;
+    background-color: #64b846;
+}
+
+nav{
+    background-color: #64b846;
+    border: 1px solid black;
+    margin-top: 0px;
+}
+
+.hi {
+    text-align: center;
+}
+
+.curstate {
+    text-align: center;
+    background: white;
+    border-radius: 1em;
+    width: 100%;
+    max-width: 750px;
+    margin: 1rem auto;
+}
+
+#redgreen{
+    margin: auto;
+    background-color: red;
+    width: 10em;
+    height: 10em;
+}
+
+#table{
+    margin: auto;
+}
+
+#container {
+    display: flex;
+    flex-direction: row;
+}
+
+#meme{
+    margin: auto ;
+}
+
+table {
+border-collapse: separate;
+border-spacing: 0;
+overflow: hidden;
+}
+th, td {
+padding: 10px;
+border: 1px solid black;
+width: 100px;
+}
+tr:first-child td:first-child {
+border-top-left-radius: 10px;
+}
+tr:first-child td:last-child {
+border-top-right-radius: 10px;
+}
+tr:last-child td:first-child {
+border-bottom-left-radius: 10px;
+}
+tr:last-child td:last-child {
+border-bottom-right-radius: 10px;
+}
+
+.topic {
+
+}
