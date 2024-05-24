@@ -169,14 +169,12 @@ function App() {
       <div className="curstate">
         <div className={parking ? "text-chadchart text-2xl py-2 text-red-500" : "text-chadchart text-2xl py-2"}> {parking ? "มีรถจอด" : "ไม่มีรถจอด"}</div>
         <div id="container">
-          <div>
             <Image
               src={parking ? notOk : ok}
               height="296"
               alt=""
               id="meme"
             />
-          </div>
           <Image
             src={parking ? notOkImage : okImage}
             height="296"

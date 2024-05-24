@@ -1,7 +1,7 @@
 let state = 1
-let date = ["15/1/66","15/1/66","15/1/66","15/1/66","15/1/66","15/1/66","15/1/66","15/1/66","15/1/66","15/1/66"]
-let time = ["15:00","15:00","15:00","15:00","15:00","15:00","15:00","15:00","15:00","15:00"]
-let status = ["red","green","red","green","red","green","red","green","red","green"]
+let date = ["15/1/66","15/1/66","15/1/66","15/1/66"]
+let time = ["15:00","15:00","15:00","15:00"]
+let status = ["red","green","red","green"]
 function toggle(){
     let box = document.getElementById("redgreen");
     let meme = document.getElementById("meme")
