@@ -41,7 +41,6 @@ body {
 }
 
 nav{
-    /* background-color:#26272b; */
     background-color: #71cc00;
     font-size:15px;
     line-height:24px;
@@ -53,7 +52,6 @@ nav{
 }
 
 .curstate {
-    text-align: center;
     background: white;
     border-radius: 1em;
     width: 100%;
@@ -86,7 +84,7 @@ nav{
   }
 }
 
-table {
+/* table {
 border-collapse: separate;
 border-spacing: 0;
 overflow: hidden;
@@ -108,7 +106,7 @@ border-bottom-left-radius: 10px;
 }
 tr:last-child td:last-child {
 border-bottom-right-radius: 10px;
-}
+} */
 
 nav{
   display: flex;

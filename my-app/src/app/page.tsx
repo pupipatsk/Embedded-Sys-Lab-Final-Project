@@ -1,11 +1,14 @@
 'use client'
 
 import Image from 'next/image';
+import { Inter } from 'next/font/google'
 
 import React, { useState, useEffect, useRef } from 'react';
 
-import { ref, set, onValue, query, orderByKey, limitToLast } from "firebase/database";
+import { ref, set, onValue, query, orderByKey, limitToLast, get, update } from "firebase/database";
 import { database } from './firebaseConfig';
+
+import { TableHead, TableRow, TableHeader, TableCell, TableBody, Table } from "@/components/ui/table"
 
 import axios from 'axios';
 
@@ -15,8 +18,6 @@ import arai from './arai.png'
 import notOk from './carNOTOK.jpg'
 import ok from './carOK.jpg'
 import github from './githubIcon.png'
-import { limit } from 'firebase/firestore';
-import { tree } from 'next/dist/build/templates/app-page';
 
 interface Log {
   id: string;
@@ -55,9 +56,68 @@ function formatDateAndTime() {
   };
 }
 
+const inter = Inter({
+  subsets: ['latin'],
+  display: 'swap',
+  variable: '--font-inter',
+});
+
 function App() {
+
   const [currentState, setCurrentState] = useState(0);
   const [tables, setTables] = useState<Log[]>([]);
+  const [startParkingTime, setStartParkingTime] = useState(null);
+  const [parkedTime, setParkedTime] = useState("");
+
+  const [latestLog, setLatestLog] = useState("");
+  const [toggleParked, setToggleParked] = useState(0);
+
+  // Function to update the mins of the latest log
+  const updateLatestLogMins = async () => {
+    //console.log(latestLog);
+    if (latestLog) {
+      const logRef = ref(database, `logs/${latestLog}`);
+      try {
+        await update(logRef, { status : parkedTime });
+        console.log('Log mins updated successfully');
+        // Optionally, you can fetch the latest log again to update the state
+        // fetchLatestLog();
+      } catch (error) {
+        console.error('Error updating log mins:', error);
+      }
+    } else {
+      console.log('No log to update');
+    }
+  };
+
+  useEffect(() => {
+    if (currentState === 0 && startParkingTime !== null) {
+      const now = new Date();
+      const elapsed = now - startParkingTime;
+      const hours = Math.round(elapsed / 3600000);
+      const minutes = Math.round((elapsed % 3600000) / 60000);
+      const seconds = Math.round((elapsed % 60000) / 1000);
+      setParkedTime(
+        `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
+      );
+      setToggleParked(1 - toggleParked);
+
+      console.log("Changed Parked");
+
+      //fetchLatestLog();
+     //updateLatestLogMins();
+
+      setStartParkingTime(null); // Reset the start time
+    } else if (currentState === 1) {
+      const dateAndTime = formatDateAndTime();
+      //writeUserData(dateAndTime.date, dateAndTime.time, "Still Parking");
+      setStartParkingTime(new Date());
+    }
+  }, [currentState]);
+
+  useEffect(() => {
+    updateLatestLogMins();
+  }, [toggleParked]);
 
   useEffect(() => {
     const tableRef = ref(database, 'logs');
@@ -102,7 +162,7 @@ function App() {
             const now = Date.now();
             if (now - lastWriteTimeRef.current > 1000) { // 1 second debounce
               const dateAndTime = formatDateAndTime();
-              writeUserData(dateAndTime.date, dateAndTime.time, "red");
+              writeUserData(dateAndTime.date, dateAndTime.time, "Still Parking");
               lastWriteTimeRef.current = now;
             }
           }
@@ -119,7 +179,7 @@ function App() {
 
     fetchData(); // Fetch initial data
 
-    const intervalId = setInterval(fetchData, 3600000); // Fetch data every 1 hours
+    const intervalId = setInterval(fetchData, 1000); // Fetch data every 1 seconds
 
     return () => {
       isMounted = false;
@@ -127,8 +187,9 @@ function App() {
     };
   }, []);
 
-  const writeUserData = (date: string, time: string, status: string) => {
+  const writeUserData = async (date: string, time: string, status: string) => {
     let userId = Date.now();
+    setLatestLog(userId.toString());
     set(ref(database, 'logs/' + userId), {
       date: date,
       time: time,
@@ -139,8 +200,6 @@ function App() {
       console.log("Data could not be saved." + error);
     });
   };
-
-  const [parking, setParking] = useState(false);
 
   return (
     <div className="App">
@@ -167,49 +226,69 @@ function App() {
         </div>
       </nav>
       <div className="curstate">
-        <div className={parking ? "text-chadchart text-2xl py-2 text-red-500" : "text-chadchart text-2xl py-2"}> {parking ? "มีรถจอด" : "ไม่มีรถจอด"}</div>
+        <div className={currentState ? "text-chadchart text-2xl py-2 text-red-500 text-center" : "text-chadchart text-2xl py-2 text-center"}> {currentState ? "มีรถจอด" : "ไม่มีรถจอด"}</div>
         <div id="container">
             <Image
-              src={parking ? notOk : ok}
+              src={currentState ? notOk : ok}
               height="296"
               alt=""
               id="meme"
             />
           <Image
-            src={parking ? notOkImage : okImage}
+            src={currentState ? notOkImage : okImage}
             height="296"
             alt=""
             id="meme"
           />
         </div>
-        <div className="text-chadchart text-2xl py-2">Detected History</div>
-        <table id="myTable" style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+        <div className="text-chadchart text-2xl py-2 text-center">Detected History</div>
+        <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-[150px] text-center">Date</TableHead>
+                <TableHead className="w-[150px] text-center">Time</TableHead>
+                <TableHead className="w-[150px] text-center">Elapsed Time</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {tables.map((log) => (
+                <TableRow key = {log.id}>
+                  <TableCell className = "text-center">{log.date}</TableCell>
+                  <TableCell className = "text-center">{log.time}</TableCell>
+                  <TableCell className = "text-center">{log.status}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        {/*<table id="myTable" style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
           <tbody>
             {tables.map((log) => (
               <tr key={log.id}>
                 <td>{log.date}</td>
                 <td>{log.time}</td>
+                <td>{log.status}</td>
               </tr>
             ))}
           </tbody>
-        </table>
+        </table>*/}
       </div>
+
       <div className="h-10"></div>
       <footer className="site-footer">
         <div className="container1">
           <div className="row">
             <div className="col-sm-12 col-md-6">
               <h6>About</h6>
-              <p className="text-justify">การตรวจจับการฝ่าฝืนจอดรถในที่ห้ามจอด เพื่อแก้ปัญหาการจราจรติดที่เกิดจากการจอดในที่ห้ามจอด โดยใช้sensorวัดแสงและระยะทาง และจะมีการส่งสัญญาณเตือนผ่านลำโพงและแสดงสถานะ/ประวัติขึ้นweb</p>
+              <p className="text-justify">การตรวจจับการฝ่าฝืนจอดรถในที่ห้ามจอด เพื่อแก้ปัญหาการจราจรติดที่เกิดจากการจอดในที่ห้ามจอด โดยใช้ sensor วัดแสงและระยะทาง และจะมีการส่งสัญญาณเตือนผ่านลำโพงและแสดงสถานะ/ประวัติขึ้นweb</p>
             </div>
 
             <div className="col-xs-6 col-md-3">
               <h6>จัดทำโดย</h6>
               <ul className="footer-links">
-                <li>1.นาย ชญานิน คงเสรีกุล 6532035021</li>
-                <li>2.นาย ชนาธิป พัฒนเพ็ญ 6532040021</li>
-                <li>3.นาย ธีภพ เล้าพรพิชยานุวัฒน์ 6532100021</li>
-                <li>4.นาย ภูภิพัทธ์ สิงขร 6532142421</li>
+                <li>1. นาย ชญานิน คงเสรีกุล 6532035021</li>
+                <li>2. นาย ชนาธิป พัฒนเพ็ญ 6532040021</li>
+                <li>3. นาย ธีภพ เล้าพรพิชยานุวัฒน์ 6532100021</li>
+                <li>4. นาย ภูภิพัทธ์ สิงขร 6532142421</li>
               </ul>
             </div>
           </div>
