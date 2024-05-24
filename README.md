@@ -1,3 +1,3 @@
 # Embbed-Lab-Final-Project
 
-![circuit diagram](circuit.svg)
+![circuit diagram](circuit.jpg)
