@@ -66,7 +66,7 @@ function App() {
 
   const [currentState, setCurrentState] = useState(0);
   const [tables, setTables] = useState<Log[]>([]);
-  const [startParkingTime, setStartParkingTime] = useState(null);
+  const [startParkingTime, setStartParkingTime] = useState<Date | null>(null);
   const [parkedTime, setParkedTime] = useState("");
 
   const [latestLog, setLatestLog] = useState("");
@@ -93,7 +93,7 @@ function App() {
   useEffect(() => {
     if (currentState === 0 && startParkingTime !== null) {
       const now = new Date();
-      const elapsed = now - startParkingTime;
+      const elapsed = now.getTime() - startParkingTime.getTime();
       const hours = Math.round(elapsed / 3600000);
       const minutes = Math.round((elapsed % 3600000) / 60000);
       const seconds = Math.round((elapsed % 60000) / 1000);
@@ -102,7 +102,7 @@ function App() {
       );
       setToggleParked(1 - toggleParked);
 
-      console.log("Changed Parked");
+      //console.log("Changed Parked");
 
       //fetchLatestLog();
      //updateLatestLogMins();
