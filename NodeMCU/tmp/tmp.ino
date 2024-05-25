@@ -70,9 +70,10 @@ void loop() {
     data.toCharArray(msg, (data.length() + 1));
     client.publish("@shadow/data/update", msg);
   }
+  
   // if(state == 1) state--;
   // else state++;
-  //
+  
 
   // String data = "{\"data\": {\"val\":" + String(state) + "}}";
   // Serial.println(data);
